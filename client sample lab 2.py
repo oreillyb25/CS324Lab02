@@ -13,6 +13,7 @@ socketLock = threading.Lock()
 
 # You should fill this in with your states
 class States(enum.Enum):
+    #put ur states here
     LISTEN = enum.auto()
     WANDER = enum.auto()
     FIND_THE_DOOR = enum.auto()
@@ -107,6 +108,7 @@ class Sensing(threading.Thread):
         threading.Thread.__init__(self)   # MUST call this to make sure we setup the thread correctly
         self.sock = socket
         self.RUNNING = True
+
     
     def run(self):
         while self.RUNNING:
@@ -114,9 +116,22 @@ class Sensing(threading.Thread):
             # This is where I would get a sensor update
             # Store it in this class
             # You can change the polling frequency to optimize performance, don't forget to use socketLock
+            #must be MUST BE LISTEN TO ME in the format as seen!
             with socketLock:
                 self.sock.sendall("a battery_charge".encode())
                 print("Battery charge: ", self.sock.recv(128).decode())
+            with socketLock:
+                self.sock.sendall("a cliff_front_left_signal".encode())
+                print("Cliff Front Left Signal: ", self.sock.recv(128).decode())
+            while socketLock:
+                self.sock.sendall("a cliff_front_right_signal".encode())
+                print("Cliff Front Right Signal: ", self.sock.recv(128).decode())
+            while socketLock:
+                self.sock.sendall("a cliff_left_signal".encode())
+                print("Cliff Left Signal: ", self.sock.recv(128).decode())
+            while socketLock:
+                self.sock.sendall("a cliff_right_signal".encode())
+                print("Cliff Right Signal: ", self.sock.recv(128).decode())
 
 # END OF SENSING
 
