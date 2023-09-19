@@ -123,13 +123,13 @@ class Sensing(threading.Thread):
             with socketLock:
                 self.sock.sendall("a cliff_front_left_signal".encode())
                 print("Cliff Front Left Signal: ", self.sock.recv(128).decode())
-            while socketLock:
+            with socketLock:
                 self.sock.sendall("a cliff_front_right_signal".encode())
                 print("Cliff Front Right Signal: ", self.sock.recv(128).decode())
-            while socketLock:
+            with socketLock:
                 self.sock.sendall("a cliff_left_signal".encode())
                 print("Cliff Left Signal: ", self.sock.recv(128).decode())
-            while socketLock:
+            with socketLock:
                 self.sock.sendall("a cliff_right_signal".encode())
                 print("Cliff Right Signal: ", self.sock.recv(128).decode())
 
