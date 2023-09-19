@@ -1,7 +1,7 @@
 #python 3 code
 import socket
 from time import *
-import keyboard
+from pynput import keyboard
 """pynput: On Mac OSX, one of the following must be true:
 * The process must run as root. OR
 * Your application must be white listed under Enable access for assistive devices. Note that this might require that you package your application, since otherwise the entire Python installation must be white listed."""
@@ -123,13 +123,13 @@ class Sensing(threading.Thread):
             with socketLock:
                 self.sock.sendall("a cliff_front_left_signal".encode())
                 print("Cliff Front Left Signal: ", self.sock.recv(128).decode())
-            while socketLock:
+            with socketLock:
                 self.sock.sendall("a cliff_front_right_signal".encode())
                 print("Cliff Front Right Signal: ", self.sock.recv(128).decode())
-            while socketLock:
+            with socketLock:
                 self.sock.sendall("a cliff_left_signal".encode())
                 print("Cliff Left Signal: ", self.sock.recv(128).decode())
-            while socketLock:
+            with socketLock:
                 self.sock.sendall("a cliff_right_signal".encode())
                 print("Cliff Right Signal: ", self.sock.recv(128).decode())
 
