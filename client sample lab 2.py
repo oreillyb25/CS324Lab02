@@ -17,6 +17,8 @@ class States(enum.Enum):
     LISTEN = enum.auto()
     WANDER = enum.auto()
     FIND_THE_DOOR = enum.auto()
+    FOLLOWR = enum.auto()
+    FOLLOWL = enum.auto()
 
 # Not a thread because this is the main thread which can be important for GUI access
 class StateMachine():
@@ -62,8 +64,44 @@ class StateMachine():
         # BEGINNING OF THE CONTROL LOOP
         while(self.RUNNING):
             sleep(0.1)
+            print(self.STATE)
             if self.STATE == States.LISTEN:
-                pass
+                self.STATE = States.WANDER
+                continue
+            if self.STATE == States.WANDER:
+                with socketLock:
+                    self.sock.sendall("a drive_straight(50)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a drive_straight(50)":
+                        self.RUNNING = False
+
+                if ( (int(self.sensors.cliffFR) < 2500 or int(self.sensors.cliffFL) < 2500)
+                and int(self.sensors.cliffFL) > -1 and int(self.sensors.cliffFR) > -1):
+                    if (self.sensors.cliffFR < 2500):
+                        self.STATE = States.FOLLOWR
+                    if(self.sensors.cliffFL < 2500):
+                        self.STATE = States.FOLLOWL
+                continue
+            if self.STATE == States.FOLLOWR:
+                with socketLock:
+                    self.sock.sendall("a drive_direct(25,150)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a drive_direct(25,150)":
+                        self.RUNNING = False
+                sleep(.5)
+                self.STATE = States.LISTEN
+                continue
+            if self.STATE == States.FOLLOWL:
+                with socketLock:
+                    self.sock.sendall("a drive_direct(150,25)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a drive_direct(150,25)":
+                        self.RUNNING = False
+                sleep(.5)
+                self.STATE = States.LISTEN
+                continue
+
+
             
 
         # END OF CONTROL LOOP
@@ -104,6 +142,9 @@ class StateMachine():
 
 
 class Sensing(threading.Thread):
+    cliffFL = -1
+    cliffFR = -1
+
     def __init__(self, socket):
         threading.Thread.__init__(self)   # MUST call this to make sure we setup the thread correctly
         self.sock = socket
@@ -116,23 +157,24 @@ class Sensing(threading.Thread):
             # This is where I would get a sensor update
             # Store it in this class
             # You can change the polling frequency to optimize performance, don't forget to use socketLock
-            #must be MUST BE LISTEN TO ME in the format as seen!
+            # must be MUST BE LISTEN TO ME in the format as seen!
             with socketLock:
                 self.sock.sendall("a battery_charge".encode())
                 print("Battery charge: ", self.sock.recv(128).decode())
             with socketLock:
                 self.sock.sendall("a cliff_front_left_signal".encode())
-                print("Cliff Front Left Signal: ", self.sock.recv(128).decode())
+                self.cliffFL = int(self.sock.recv(128).decode())
+                print("Cliff Front Left Signal: ", self.cliffFL)
             with socketLock:
                 self.sock.sendall("a cliff_front_right_signal".encode())
-                print("Cliff Front Right Signal: ", self.sock.recv(128).decode())
+                self.cliffFR = int(self.sock.recv(128).decode())
+                print("Cliff Front Right Signal: ", self.cliffFR)
             with socketLock:
                 self.sock.sendall("a cliff_left_signal".encode())
                 print("Cliff Left Signal: ", self.sock.recv(128).decode())
             with socketLock:
                 self.sock.sendall("a cliff_right_signal".encode())
                 print("Cliff Right Signal: ", self.sock.recv(128).decode())
-
 # END OF SENSING
 
 
