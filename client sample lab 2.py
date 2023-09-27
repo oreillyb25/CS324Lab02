@@ -19,6 +19,9 @@ class States(enum.Enum):
     FIND_THE_DOOR = enum.auto()
     FOLLOWR = enum.auto()
     FOLLOWL = enum.auto()
+    BACKR = enum.auto()
+    BACKL = enum.auto()
+
 
 # Not a thread because this is the main thread which can be important for GUI access
 class StateMachine():
@@ -31,6 +34,7 @@ class StateMachine():
         self.STATE = States.LISTEN
         self.RUNNING = True
         self.DIST = False
+        self.THRESH = 2600
         
         # connect to the motorcontroller
         try:
@@ -70,17 +74,24 @@ class StateMachine():
                 continue
             if self.STATE == States.WANDER:
                 with socketLock:
-                    self.sock.sendall("a drive_straight(50)".encode())
+                    self.sock.sendall("a drive_straight(25)".encode())
                     result = self.sock.recv(128)
-                    if result.decode() != "a drive_straight(50)":
+                    if result.decode() != "a drive_straight(25)":
                         self.RUNNING = False
 
-                if ( (int(self.sensors.cliffFR) < 2500 or int(self.sensors.cliffFL) < 2500)
-                and int(self.sensors.cliffFL) > -1 and int(self.sensors.cliffFR) > -1):
-                    if (self.sensors.cliffFR < 2500):
+                if (int(self.sensors.cliffFL) > -1 and int(self.sensors.cliffFR) > -1 and
+                self.sensors.cliffBL > -1 and self.sensors.cliffBR > -1):
+                    if (self.sensors.cliffFR < self.THRESH):
                         self.STATE = States.FOLLOWR
-                    if(self.sensors.cliffFL < 2500):
+                    elif(self.sensors.cliffFL < self.THRESH):
                         self.STATE = States.FOLLOWL
+                    elif(self.sensors.cliffBR < self.THRESH):
+                        self.STATE = States.BACKR
+                    elif(self.sensors.cliffBL < self.THRESH):
+                        self.STATE = States.BACKL
+                    else:
+                        self.STATE = States.LISTEN
+
                 continue
             if self.STATE == States.FOLLOWR:
                 with socketLock:
@@ -88,7 +99,15 @@ class StateMachine():
                     result = self.sock.recv(128)
                     if result.decode() != "a drive_direct(25,150)":
                         self.RUNNING = False
-                sleep(.5)
+                    self.sock.sendall("a set_song(0, [(80,32)])".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a set_song(0, [(80,32)])":
+                        self.RUNNING = False
+                    self.sock.sendall("a play_song(0)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a play_song(0)":
+                        self.RUNNING = False
+                    sleep(.25)
                 self.STATE = States.LISTEN
                 continue
             if self.STATE == States.FOLLOWL:
@@ -97,9 +116,50 @@ class StateMachine():
                     result = self.sock.recv(128)
                     if result.decode() != "a drive_direct(150,25)":
                         self.RUNNING = False
-                sleep(.5)
+                    self.sock.sendall("a set_song(0, [(62,32)])".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a set_song(0, [(62,32)])":
+                        self.RUNNING = False
+                    self.sock.sendall("a play_song(0)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a play_song(0)":
+                        self.RUNNING = False
+                    sleep(.25)
+
                 self.STATE = States.LISTEN
                 continue
+            if self.STATE == States.BACKL:
+                with socketLock:
+                    self.sock.sendall("a spin_left(100)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a spin_left(100)":
+                        self.RUNNING = False
+                    self.sock.sendall("a set_song(0, [(62,32)])".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a set_song(0, [(62,32)])":
+                        self.RUNNING = False
+                    self.sock.sendall("a play_song(0)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a play_song(0)":
+                        self.RUNNING = False
+                    sleep(1)
+                    self.STATE = States.LISTEN
+            if self.STATE == States.BACKR:
+                with socketLock:
+                    self.sock.sendall("a spin_right(100)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a spin_right(100)":
+                        self.RUNNING = False
+                    self.sock.sendall("a set_song(0, [(80,32)])".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a set_song(0, [(80,32)])":
+                        self.RUNNING = False
+                    self.sock.sendall("a play_song(0)".encode())
+                    result = self.sock.recv(128)
+                    if result.decode() != "a play_song(0)":
+                        self.RUNNING = False
+                    sleep(1)
+                    self.STATE = States.LISTEN
 
 
             
@@ -144,6 +204,8 @@ class StateMachine():
 class Sensing(threading.Thread):
     cliffFL = -1
     cliffFR = -1
+    cliffBL = -1
+    cliffBR = -1
 
     def __init__(self, socket):
         threading.Thread.__init__(self)   # MUST call this to make sure we setup the thread correctly
@@ -171,10 +233,12 @@ class Sensing(threading.Thread):
                 print("Cliff Front Right Signal: ", self.cliffFR)
             with socketLock:
                 self.sock.sendall("a cliff_left_signal".encode())
-                print("Cliff Left Signal: ", self.sock.recv(128).decode())
+                self.cliffBL = int(self.sock.recv(128).decode())
+                print("Cliff Left Signal: ", self.cliffBL)
             with socketLock:
                 self.sock.sendall("a cliff_right_signal".encode())
-                print("Cliff Right Signal: ", self.sock.recv(128).decode())
+                self.cliffBR = int(self.sock.recv(128).decode())
+                print("Cliff Right Signal: ", self.cliffBR)
 # END OF SENSING
 
 
